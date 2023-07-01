@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include <windows.h>
+#include <lmaccess.h>
+#include <lmerr.h>
+#include <tchar.h>
+
+#pragma comment(lib, "Netapi32.lib")
+
+int main() {
+    USER_INFO_1 user_info;
+    LOCALGROUP_MEMBERS_INFO_3 group_info;
+    DWORD result;
+
+    // 用户信息设置
+    user_info.usri1_name = (LPWSTR)L"audit1";
+    user_info.usri1_password = (LPWSTR)L"Test@128";
+    user_info.usri1_priv = USER_PRIV_USER;
+    user_info.usri1_home_dir = NULL;
+    user_info.usri1_comment = (LPWSTR)L"AU User";
+    user_info.usri1_flags = UF_SCRIPT;
+    user_info.usri1_script_path = NULL;
+
+    // 添加用户
+    result = NetUserAdd(NULL, 1, (LPBYTE)&user_info, NULL);
+    if (result != NERR_Success) {
+        if (result == 5) {
+
+            _tprintf(_T("Requires an administrator to run\n"));
+        }
+        else if (result == 2224) {
+            _tprintf(_T("The user may already exist\n"));
+        }
+        else {
+            _tprintf(_T("Failed to add user. Error code: %lu\n"), result);
+        }
+
+        return 1;
+    }
+
+
+
+    // 添加用户到管理员组
+    group_info.lgrmi3_domainandname = (LPWSTR)L"audit1";
+    result = NetLocalGroupAddMembers(NULL, L"Administrators", 3, (LPBYTE)&group_info, 1);
+    if (result != NERR_Success) {
+        _tprintf(_T("Failed to add user to Administrators\n"));
+        // 回滚操作，删除刚添加的用户
+        NetUserDel(NULL, (LPWSTR)L"audit1");
+        return 1;
+    }
+
+    _tprintf(_T("User added successfully:audit1:Test@123\n"));
+
+    return 0;
+}
